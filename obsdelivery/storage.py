@@ -13,6 +13,10 @@ Design notes
   content under the same id raises a conflict.
 * Failed deliveries never touch ``deliveries``; they are only audited in
   ``delivery_attempts`` (audit rows are not a successful identity).
+* Interval products, splitter recipes and splitter tasks follow the same
+  rules: immutable content-digested rows, replay returns the stored row,
+  conflicts on same id with different content, and rejected splitter tasks
+  are only audited in ``splitter_attempts``.
 """
 
 from __future__ import annotations
@@ -152,6 +156,55 @@ CREATE TABLE IF NOT EXISTS delivery_attempts (
     attempt_id      INTEGER PRIMARY KEY AUTOINCREMENT,
     delivery_id     TEXT NOT NULL,
     product_id      TEXT NOT NULL,
+    request_digest  TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    reasons_json    TEXT NOT NULL,
+    created_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS interval_products (
+    product_id          TEXT PRIMARY KEY,
+    instrument_contract TEXT NOT NULL,
+    sample_ids_json     TEXT NOT NULL,
+    content_digest      TEXT NOT NULL,
+    created_at          TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS interval_product_item (
+    product_id         TEXT NOT NULL REFERENCES interval_products(product_id),
+    sample_id          TEXT NOT NULL,
+    received_revision  INTEGER,
+    original_bits      TEXT,
+    certifiable        INTEGER NOT NULL,
+    reason             TEXT,
+    canonical_json     TEXT NOT NULL,
+    PRIMARY KEY (product_id, sample_id)
+);
+
+CREATE TABLE IF NOT EXISTS splitter_recipes (
+    recipe_id       TEXT PRIMARY KEY,
+    channels_json   TEXT NOT NULL,
+    bias            TEXT NOT NULL,
+    cut_points_json TEXT NOT NULL,
+    content_digest  TEXT NOT NULL,
+    created_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS splitter_tasks (
+    task_id         TEXT PRIMARY KEY,
+    product_id      TEXT NOT NULL REFERENCES interval_products(product_id),
+    recipe_id       TEXT NOT NULL REFERENCES splitter_recipes(recipe_id),
+    request_digest  TEXT NOT NULL,
+    result_json     TEXT NOT NULL,
+    content_digest  TEXT NOT NULL,
+    created_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS splitter_attempts (
+    attempt_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id         TEXT NOT NULL,
+    product_id      TEXT NOT NULL,
+    recipe_id       TEXT NOT NULL,
     request_digest  TEXT NOT NULL,
     status          TEXT NOT NULL,
     reasons_json    TEXT NOT NULL,

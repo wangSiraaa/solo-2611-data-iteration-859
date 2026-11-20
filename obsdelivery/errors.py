@@ -72,3 +72,42 @@ class DeliveryRejected(Exception):
 
 class IntegrityError(Exception):
     """Stored immutable content failed independent read-back verification."""
+
+
+class RecipeConflict(Exception):
+    """A splitter recipe id already exists with different immutable content."""
+
+
+class RecipeNotFound(KeyError):
+    pass
+
+
+class SplitterTaskConflict(Exception):
+    """A successful splitter task id is being reused with a different request."""
+
+
+class SplitterTaskNotFound(KeyError):
+    pass
+
+
+class SplitterRejected(Exception):
+    """A splitter task cannot be certified for automatic sorting.
+
+    A non-certifiable channel with a non-zero net coefficient makes the
+    total unbounded, so the whole task is refused: no task row is written
+    and the failure is only audited in ``splitter_attempts``.  The same
+    task id may be retried after the underlying product is corrected.
+    """
+
+    def __init__(
+        self,
+        task_id: str,
+        reasons: Iterable[Mapping[str, Any]],
+        attempt_id: int | None = None,
+    ):
+        self.task_id = task_id
+        self.reasons = list(reasons)
+        self.attempt_id = attempt_id
+        super().__init__(
+            f"splitter task {task_id!r} rejected: " + repr(self.reasons)
+        )
